@@ -1,15 +1,47 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Bell, Plus, FileText, Activity, ShieldAlert, Timer, Shield } from 'lucide-react';
+import { collection, onSnapshot, query } from 'firebase/firestore';
+import { db } from '../../backend/firebase';
 import StatCard from '../components/dashboard/StatCard';
 import HeatmapSection from '../components/dashboard/HeatmapSection';
 import RecentReports from '../components/dashboard/RecentReports';
 import IncidentTable from '../components/dashboard/IncidentTable';
 
 const Dashboard = () => {
+    const [stats, setStats] = useState({
+        totalReports: 0,
+        activeIssues: 0,
+        avgResponse: '5m 12s', // Placeholder as we don't have response time data yet
+        safetyScore: 100
+    });
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const q = query(collection(db, "complaints"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const reports = snapshot.docs.map(doc => doc.data());
+            const total = reports.length;
+            const active = reports.filter(r => r.status === 'Pending' || r.status === 'In Progress' || !r.status).length;
+            
+            // Simple logic for Safety Score: Start at 100, deduct 5 for each active issue, min 0.
+            const calculatedScore = Math.max(0, 100 - (active * 2)).toFixed(1);
+
+            setStats({
+                totalReports: total,
+                activeIssues: active,
+                avgResponse: '5m 12s', 
+                safetyScore: calculatedScore
+            });
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
     return (
         <div className="flex flex-col h-screen bg-[#F9FAFB] overflow-hidden">
             {/* Top Bar / Header */}
-            <header className="bg-white border-b border-gray-200 px-6 py-3 flex justify-between items-center flex-shrink-0">
+            <header className="bg-white border-b border-gray-200 px-6 py-3 flex justify-between items-center shrink-0">
                 <div>
                     <h1 className="text-base font-semibold text-gray-900">Admin Overview</h1>
                     <p className="text-xs text-gray-500">Real-time campus security status</p>
@@ -47,33 +79,33 @@ const Dashboard = () => {
                 <div className="grid grid-cols-4 gap-3">
                     <StatCard 
                         title="Total Reports" 
-                        value="1,240" 
-                        change="+12%" 
+                        value={loading ? "..." : stats.totalReports.toLocaleString()} 
+                        change="Live" 
                         changeType="positive" 
                         icon={FileText} 
                         color="blue"
                     />
                     <StatCard 
                         title="Active Issues" 
-                        value="14" 
-                        change="High Alert" 
-                        changeType="negative"
+                        value={loading ? "..." : stats.activeIssues.toLocaleString()} 
+                        change={stats.activeIssues > 5 ? "High Alert" : "Normal"} 
+                        changeType={stats.activeIssues > 5 ? "negative" : "positive"}
                         icon={ShieldAlert} 
                         color="red"
                     />
                      <StatCard 
                         title="Avg. Response" 
-                        value="6m 24s" 
-                        change="-4m" 
+                        value={stats.avgResponse} 
+                        change="Est." 
                         changeType="positive" 
                         icon={Timer} 
                         color="green"
                     />
                      <StatCard 
                         title="Safety Score" 
-                        value="94.2" 
-                        change="Excellent" 
-                        changeType="positive" 
+                        value={loading ? "..." : stats.safetyScore} 
+                        change={stats.safetyScore > 80 ? "Excellent" : "Fair"} 
+                        changeType={stats.safetyScore > 80 ? "positive" : "negative"} 
                         icon={Shield} 
                         color="blue"
                     />

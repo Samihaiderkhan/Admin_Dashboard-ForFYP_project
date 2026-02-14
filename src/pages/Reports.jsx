@@ -1,98 +1,95 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, Bell, Settings, FileText, AlertTriangle, Target, CheckCircle, Download, Filter, ChevronDown, MoreVertical } from 'lucide-react';
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { db } from '../../backend/firebase';
+import { useNavigate } from 'react-router-dom';
 
 const Reports = () => {
     const [activeTab, setActiveTab] = useState('All Reports');
     const [timeFilter, setTimeFilter] = useState('Last 24 Hours');
+    const [reports, setReports] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        const q = query(collection(db, "complaints"));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const reportsData = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            console.log("Reports Data:", reportsData);
+            setReports(reportsData);
+            setLoading(false);
+        }, (error) => {
+            console.error("Error fetching reports:", error);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    const filteredReports = reports.filter(report => {
+        if (activeTab === 'All Reports') return true;
+        if (activeTab === 'Pending') return !report.status || report.status === 'Pending';
+        if (activeTab === 'Resolved') return report.status === 'Resolved';
+        // Add more logic if needed
+        return true;
+    });
 
     const stats = [
         {
             label: 'TOTAL REPORTS',
-            value: '1,284',
-            change: '+12%',
+            value: reports.length,
+            change: '',
             icon: FileText,
             iconBg: 'bg-blue-50',
             iconColor: 'text-blue-600'
         },
+        // Placeholder stats - can be calculated based on reports data
         {
             label: 'HIGH SEVERITY',
-            value: '18',
-            change: '+4',
+            value: '0', 
+            change: '',
             icon: AlertTriangle,
             iconBg: 'bg-red-50',
             iconColor: 'text-red-600'
         },
         {
             label: 'AVG. AI CONFIDENCE',
-            value: '94.2%',
-            change: '+0.5%',
+            value: 'N/A',
+            change: '',
             icon: Target,
             iconBg: 'bg-blue-50',
             iconColor: 'text-blue-600'
         },
         {
             label: 'RESOLVED TODAY',
-            value: '42',
-            change: '85% daily goal',
+            value: reports.filter(r => r.status === 'Resolved').length,
+            change: '',
             icon: CheckCircle,
             iconBg: 'bg-green-50',
             iconColor: 'text-green-600'
         }
     ];
 
-    const reports = [
-        {
-            id: '#REP-2480',
-            type: 'Broken Entry Point',
-            severity: 'Critical',
-            severityColor: 'bg-red-50 text-red-600',
-            confidence: 98,
-            location: 'Dormitory A, Floor 2',
-            status: 'Pending',
-            statusColor: 'text-gray-700',
-            image: '🚪'
-        },
-        {
-            id: '#REP-2488',
-            type: 'Unauthorized Access',
-            severity: 'Medium',
-            severityColor: 'bg-yellow-50 text-yellow-700',
-            confidence: 82,
-            location: 'Main Library East',
-            status: 'Resolved',
-            statusColor: 'text-green-600',
-            image: '🔐'
-        },
-        {
-            id: '#REP-2487',
-            type: 'Fire Hazard',
-            severity: 'Critical',
-            severityColor: 'bg-red-50 text-red-600',
-            confidence: 95,
-            location: 'Science Lab 402',
-            status: 'Pending',
-            statusColor: 'text-gray-700',
-            image: '🏢'
-        },
-        {
-            id: '#REP-2481',
-            type: 'Slippery Surface',
-            severity: 'Medium',
-            severityColor: 'bg-yellow-50 text-yellow-700',
-            confidence: 76,
-            location: 'Student Center Lobby',
-            status: 'Resolved',
-            statusColor: 'text-green-600',
-            image: '⚠️'
-        }
-    ];
-
     const tabs = ['All Reports', 'Pending', 'Critical', 'Resolved'];
+
+    const getLocationString = (loc) => {
+        if (!loc) return 'Unknown Location';
+        if (typeof loc === 'string') return loc;
+        if (Array.isArray(loc)) return `${loc[0]}, ${loc[1]}`;
+        if (typeof loc === 'object') {
+             if (loc.latitude) return `${loc.latitude}, ${loc.longitude}`;
+             if (loc._lat) return `${loc._lat}, ${loc._long}`;
+        }
+        return String(loc);
+    };
 
     return (
         <div className="flex flex-col h-screen bg-[#F9FAFB] overflow-hidden">
             {/* Header */}
-            <header className="bg-white border-b border-gray-200 px-6 py-3 flex justify-between items-center flex-shrink-0">
+            <header className="bg-white border-b border-gray-200 px-6 py-3 flex justify-between items-center shrink-0">
                 <div className="flex-1 max-w-md">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
@@ -136,7 +133,7 @@ const Reports = () => {
                 <div className="grid grid-cols-4 gap-4">
                     {stats.map((stat, index) => (
                         <div key={index} className="bg-white rounded-xl border border-gray-200 p-4 flex items-start gap-3">
-                            <div className={`p-2 rounded-lg ${stat.iconBg} flex-shrink-0`}>
+                            <div className={`p-2 rounded-lg ${stat.iconBg} shrink-0`}>
                                 <stat.icon className={`w-4 h-4 ${stat.iconColor}`} />
                             </div>
                             <div className="flex-1 min-w-0">
@@ -186,53 +183,52 @@ const Reports = () => {
                                 <tr>
                                     <th className="px-4 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Image</th>
                                     <th className="px-4 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Incident Type</th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Severity</th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">AI Confidence</th>
                                     <th className="px-4 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Location</th>
                                     <th className="px-4 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Status</th>
                                     <th className="px-4 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
-                                {reports.map((report) => (
+                                {filteredReports.map((report) => (
                                     <tr 
                                         key={report.id} 
-                                        onClick={() => window.location.href = `/reports/${report.id.replace('#', '')}`}
+                                        onClick={() => navigate(`/reports/${report.id}`)}
                                         className="hover:bg-gray-50/50 transition-colors cursor-pointer group"
                                     >
                                         <td className="px-4 py-3">
-                                            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-lg group-hover:bg-white transition-colors">
-                                                {report.image}
+                                            <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center text-lg group-hover:bg-white transition-colors overflow-hidden">
+                                                {(report.imageurl || report.imageUrl || report.image) ? (
+                                                    <img 
+                                                        src={report.imageurl || report.imageUrl || report.image} 
+                                                        alt="Report" 
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => {
+                                                            e.target.onerror = null; 
+                                                            e.target.style.display = 'none';
+                                                            e.target.parentNode.textContent = '📷';
+                                                        }}
+                                                    />
+                                                ) : '📷'}
                                             </div>
                                         </td>
                                         <td className="px-4 py-3">
                                             <div>
-                                                <p className="text-xs font-semibold text-gray-900">{report.type}</p>
+                                                <p className="text-xs font-semibold text-gray-900">
+                                                    {report.title || report.category || (report.description ? report.description.substring(0, 40) + (report.description.length > 40 ? '...' : '') : 'Incident Report')}
+                                                </p>
                                                 <p className="text-[10px] text-gray-500">ID: {report.id}</p>
                                             </div>
                                         </td>
                                         <td className="px-4 py-3">
-                                            <span className={`px-2 py-1 rounded text-[10px] font-semibold ${report.severityColor}`}>
-                                                {report.severity}
-                                            </span>
+                                            <p className="text-xs text-blue-600 font-medium hover:underline truncate max-w-[200px]" title={report.address || getLocationString(report.location)}>
+                                                {report.address || getLocationString(report.location)}
+                                            </p>
                                         </td>
                                         <td className="px-4 py-3">
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex-1 bg-gray-200 rounded-full h-1.5 max-w-[60px]">
-                                                    <div 
-                                                        className="bg-blue-600 h-1.5 rounded-full" 
-                                                        style={{ width: `${report.confidence}%` }}
-                                                    ></div>
-                                                </div>
-                                                <span className="text-xs font-semibold text-gray-900">{report.confidence}%</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <p className="text-xs text-blue-600 font-medium hover:underline">{report.location}</p>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <span className={`text-xs font-semibold ${report.statusColor}`}>
-                                                {report.status}
+                                            <span className={`text-xs font-semibold ${
+                                                report.status === 'Resolved' ? 'text-green-600' : 'text-blue-600'
+                                            }`}>
+                                                {report.status || 'Pending'}
                                             </span>
                                         </td>
                                         <td className="px-4 py-3">
@@ -245,44 +241,15 @@ const Reports = () => {
                                         </td>
                                     </tr>
                                 ))}
+                                {filteredReports.length === 0 && (
+                                    <tr>
+                                        <td colSpan="5" className="px-4 py-8 text-center text-gray-500 text-sm">
+                                            No reports found.
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
-                    </div>
-
-                    {/* Pagination */}
-                    <div className="border-t border-gray-200 px-4 py-3 flex justify-between items-center">
-                        <p className="text-xs text-gray-500">Showing 1 to 4 of 1,284 reports</p>
-                        <div className="flex gap-1">
-                            <button className="w-7 h-7 flex items-center justify-center rounded text-xs text-gray-600 hover:bg-gray-100">
-                                ‹
-                            </button>
-                            <button className="w-7 h-7 flex items-center justify-center rounded text-xs bg-blue-600 text-white font-semibold">
-                                1
-                            </button>
-                            <button className="w-7 h-7 flex items-center justify-center rounded text-xs text-gray-600 hover:bg-gray-100">
-                                2
-                            </button>
-                            <button className="w-7 h-7 flex items-center justify-center rounded text-xs text-gray-600 hover:bg-gray-100">
-                                3
-                            </button>
-                            <span className="w-7 h-7 flex items-center justify-center text-xs text-gray-400">...</span>
-                            <button className="w-7 h-7 flex items-center justify-center rounded text-xs text-gray-600 hover:bg-gray-100">
-                                321
-                            </button>
-                            <button className="w-7 h-7 flex items-center justify-center rounded text-xs text-gray-600 hover:bg-gray-100">
-                                ›
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Footer */}
-                <div className="flex justify-between items-center text-[10px] text-gray-400">
-                    <p>© 2024 SafeCampus Monitoring Systems. All rights reserved.</p>
-                    <div className="flex gap-4">
-                        <a href="#" className="hover:text-gray-600">Privacy Policy</a>
-                        <a href="#" className="hover:text-gray-600">System Status</a>
-                        <a href="#" className="hover:text-gray-600">Contact Support</a>
                     </div>
                 </div>
             </main>
