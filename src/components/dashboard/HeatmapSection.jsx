@@ -53,7 +53,7 @@ const HeatmapSection = () => {
                     <span className="text-[9px] font-semibold text-gray-500 uppercase block mb-1">Intensity</span>
                     <div className="flex items-center gap-1.5">
                         <span className="text-[9px] text-gray-400">Low</span>
-                        <div className="w-20 h-1.5 rounded-full bg-gradient-to-r from-blue-400 via-yellow-400 to-red-500"></div>
+                        <div className="w-20 h-1.5 rounded-full bg-linear-to-r from-blue-400 via-yellow-400 to-red-500"></div>
                         <span className="text-[9px] text-gray-400">High</span>
                     </div>
                 </div>

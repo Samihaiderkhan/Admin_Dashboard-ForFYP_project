@@ -11,10 +11,12 @@ const Dashboard = () => {
     const [stats, setStats] = useState({
         totalReports: 0,
         activeIssues: 0,
-        avgResponse: '5m 12s', // Placeholder as we don't have response time data yet
+        resolvedToday: 0,
+        avgResponse: '5m 12s',
         safetyScore: 100
     });
     const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         const q = query(collection(db, "complaints"));
@@ -22,14 +24,27 @@ const Dashboard = () => {
             const reports = snapshot.docs.map(doc => doc.data());
             const total = reports.length;
             const active = reports.filter(r => r.status === 'Pending' || r.status === 'In Progress' || !r.status).length;
-            
-            // Simple logic for Safety Score: Start at 100, deduct 5 for each active issue, min 0.
+
+            // Count reports resolved/done TODAY
+            const today = new Date();
+            const resolvedToday = reports.filter(r => {
+                if (r.status !== 'Resolved' && r.status !== 'Done') return false;
+                if (!r.resolvedAt) return false;
+                const d = r.resolvedAt.toDate ? r.resolvedAt.toDate() : new Date(r.resolvedAt);
+                return (
+                    d.getDate() === today.getDate() &&
+                    d.getMonth() === today.getMonth() &&
+                    d.getFullYear() === today.getFullYear()
+                );
+            }).length;
+
             const calculatedScore = Math.max(0, 100 - (active * 2)).toFixed(1);
 
             setStats({
                 totalReports: total,
                 activeIssues: active,
-                avgResponse: '5m 12s', 
+                resolvedToday,
+                avgResponse: '5m 12s',
                 safetyScore: calculatedScore
             });
             setLoading(false);
@@ -53,7 +68,9 @@ const Dashboard = () => {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
                         <input 
                             type="text" 
-                            placeholder="Search incidents..." 
+                            placeholder="Search incidents by title, category, location..." 
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 transition-all placeholder-gray-400"
                         />
                     </div>
@@ -102,12 +119,12 @@ const Dashboard = () => {
                         color="green"
                     />
                      <StatCard 
-                        title="Safety Score" 
-                        value={loading ? "..." : stats.safetyScore} 
-                        change={stats.safetyScore > 80 ? "Excellent" : "Fair"} 
-                        changeType={stats.safetyScore > 80 ? "positive" : "negative"} 
+                        title="Resolved Today" 
+                        value={loading ? "..." : stats.resolvedToday} 
+                        change={stats.resolvedToday > 0 ? "Great work!" : "None yet"} 
+                        changeType={stats.resolvedToday > 0 ? "positive" : "positive"} 
                         icon={Shield} 
-                        color="blue"
+                        color="green"
                     />
                 </div>
 
@@ -122,8 +139,8 @@ const Dashboard = () => {
                 </div>
 
                 {/* Bottom Section: Table - Fixed height */}
-                <div className="h-[180px]">
-                   <IncidentTable />
+                <div className="h-45">
+                   <IncidentTable searchQuery={searchQuery} />
                 </div>
             </main>
         </div>

@@ -4,7 +4,7 @@ import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../../../backend/firebase';
 import { useNavigate } from 'react-router-dom';
 
-const IncidentTable = () => {
+const IncidentTable = ({ searchQuery = '' }) => {
     const [reports, setReports] = useState([]);
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
@@ -51,6 +51,17 @@ const IncidentTable = () => {
 
     if (!reports) return null;
 
+    const q = searchQuery.toLowerCase().trim();
+    const filteredReports = q
+        ? reports.filter((r) =>
+              (r.id || '').toLowerCase().includes(q) ||
+              (r.title || '').toLowerCase().includes(q) ||
+              (r.category || '').toLowerCase().includes(q) ||
+              (r.description || '').toLowerCase().includes(q) ||
+              (r.address || getLocationString(r.location)).toLowerCase().includes(q)
+          )
+        : reports;
+
     return (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden h-full flex flex-col">
             <div className="px-4 py-2.5 flex justify-between items-center border-b border-gray-200 shrink-0">
@@ -79,7 +90,13 @@ const IncidentTable = () => {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                        {reports.map((row) => (
+                        {filteredReports.length === 0 ? (
+                            <tr>
+                                <td colSpan="6" className="px-4 py-6 text-center text-gray-400 text-xs">
+                                    {q ? `No results for "${searchQuery}"` : 'No incidents found.'}
+                                </td>
+                            </tr>
+                        ) : filteredReports.map((row) => (
                             <tr 
                                 key={row.id} 
                                 className="hover:bg-gray-50/50 transition-colors cursor-pointer"
@@ -89,7 +106,7 @@ const IncidentTable = () => {
                                 <td className="px-4 py-2.5 text-[11px] text-gray-700">
                                     {row.title || row.category || (row.description ? row.description.substring(0, 30) + (row.description.length > 30 ? '...' : '') : 'Incident Report')}
                                 </td>
-                                <td className="px-4 py-2.5 text-[11px] text-gray-600 truncate max-w-[150px]" title={String(row.address || getLocationString(row.location))}>
+                                <td className="px-4 py-2.5 text-[11px] text-gray-600 truncate max-w-37.5" title={String(row.address || getLocationString(row.location))}>
                                     {String(row.address || getLocationString(row.location))}
                                 </td>
                                 <td className="px-4 py-2.5 text-[11px] text-gray-600 font-mono">{row.userId ? String(row.userId).substring(0, 8) + '...' : 'Anonymous'}</td>
